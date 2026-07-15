@@ -8,6 +8,7 @@ struct HostCardView: View {
     var onBrowse: () -> Void
 
     @State private var confirmDelete = false
+    @State private var hovering = false
 
     private var status: HostStatus { engine.status(for: host) }
 
@@ -29,8 +30,16 @@ struct HostCardView: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.regularMaterial))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.quaternary))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(hovering ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.quaternary)))
+        .shadow(
+            color: .black.opacity(hovering ? 0.16 : 0.05),
+            radius: hovering ? 9 : 3, y: hovering ? 4 : 1)
+        .scaleEffect(hovering ? 1.006 : 1)
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.16), value: hovering)
         .onTapGesture(perform: onOpen)
         .contextMenu {
             Button("查看详情") { onOpen() }

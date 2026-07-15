@@ -306,15 +306,7 @@ private struct TerminalTabChip: View {
                 .font(.caption)
                 .lineLimit(1)
                 .frame(maxWidth: 150)
-            Button {
-                engine.closeTerminalTab(tab.id)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.tertiary)
-            .help("关闭标签页")
+            CloseChipButton { engine.closeTerminalTab(tab.id) }
         }
     }
 }
@@ -324,14 +316,20 @@ private struct TabChipFrame<Content: View>: View {
     let action: () -> Void
     @ViewBuilder let content: Content
 
+    @State private var hovering = false
+
     var body: some View {
         HStack(spacing: 6) { content }
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(selected ? Color.accentColor.opacity(0.16) : .clear))
+                    .fill(selected
+                          ? Color.accentColor.opacity(0.16)
+                          : Color.primary.opacity(hovering ? 0.07 : 0)))
             .contentShape(RoundedRectangle(cornerRadius: 6))
+            .onHover { hovering = $0 }
+            .animation(.easeOut(duration: 0.12), value: hovering)
             .onTapGesture(perform: action)
     }
 }
@@ -431,6 +429,8 @@ private struct SidebarTerminalRow: View {
 
     private var isSelected: Bool { engine.selectedTab == .terminal(tab.id) }
 
+    @State private var hovering = false
+
     var body: some View {
         HStack(spacing: 7) {
             if let host = engine.host(alias: tab.alias) {
@@ -442,22 +442,18 @@ private struct SidebarTerminalRow: View {
                 .font(.callout)
                 .lineLimit(1)
             Spacer()
-            Button {
-                engine.closeTerminalTab(tab.id)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.tertiary)
-            .help("关闭标签页")
+            CloseChipButton { engine.closeTerminalTab(tab.id) }
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 5)
-                .fill(isSelected ? Color.accentColor.opacity(0.16) : .clear))
+                .fill(isSelected
+                      ? Color.accentColor.opacity(0.16)
+                      : Color.primary.opacity(hovering ? 0.07 : 0)))
         .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
         .onTapGesture { engine.selectedTab = .terminal(tab.id) }
         .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
     }

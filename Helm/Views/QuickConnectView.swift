@@ -63,6 +63,7 @@ struct QuickConnectView: View {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .contentShape(Rectangle())
+                                .hoverHighlight(cornerRadius: 7)
                             }
                             .buttonStyle(.plain)
                         }

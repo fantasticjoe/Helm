@@ -106,7 +106,9 @@ private struct MenuBarHostRow: View {
             .buttonStyle(.borderless)
             .help("打开终端会话")
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 8)
         .padding(.vertical, 5)
+        .hoverHighlight(cornerRadius: 6)
+        .padding(.horizontal, 6)
     }
 }
