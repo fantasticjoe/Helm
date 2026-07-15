@@ -29,3 +29,7 @@ xcodebuild -project Helm.xcodeproj -scheme Helm test
 
 - 密钥建议配合 ssh-agent / `UseKeychain`;带 passphrase 的密钥提示会被 askpass 拒绝
 - 开发用 ad-hoc 签名,重建后首次读 Keychain 会重新弹授权;换正式证书可消除
+
+## 许可证
+
+[MIT](LICENSE)
