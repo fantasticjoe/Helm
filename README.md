@@ -30,7 +30,8 @@ xcodebuild -project Helm.xcodeproj -scheme Helm test
 
 ## 说明
 
-- 密钥建议配合 ssh-agent / `UseKeychain`;带 passphrase 的密钥提示会被 askpass 拒绝
+- 带 passphrase 的密钥:首次连接弹原生口令框,验证后由 ssh(`UseKeychain`)存入
+  系统钥匙串,之后全程静默;Helm 自身不存储 passphrase
 - 开发用 ad-hoc 签名,重建后首次读 Keychain 会重新弹授权;换正式证书可消除
 
 ## 许可证

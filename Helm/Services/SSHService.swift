@@ -25,8 +25,14 @@ enum SSHService {
         controlArgs + ["-o", "ConnectTimeout=5", "-o", "LogLevel=ERROR"]
     }
 
+    /// Apple ssh 的钥匙串集成:passphrase 首次验证通过后由 ssh 自己存入系统钥匙串,
+    /// 之后自动取用——Helm 永不存储密钥口令。
+    private static var keychainArgs: [String] {
+        ["-o", "AddKeysToAgent=yes", "-o", "UseKeychain=yes"]
+    }
+
     private static var masterArgs: [String] {
-        [
+        keychainArgs + [
             "-o", "ControlMaster=auto",
             "-o", "ControlPersist=8h",
             "-o", "StrictHostKeyChecking=accept-new",
@@ -51,12 +57,15 @@ enum SSHService {
             timeout: 5)
     }
 
-    /// 纯密钥主机:静默建 master。
-    static func establishMasterSilently(_ host: Host) async -> ProcessResult {
+    /// 密钥主机建 master:锁死 publickey 认证;带 passphrase 的密钥首次会经 askpass
+    /// 弹原生口令框,验证后 ssh 存入钥匙串(UseKeychain),之后全程静默。
+    static func establishMasterWithKey(_ host: Host) async -> ProcessResult {
         await ProcessRunner.run(
             sshPath,
-            arguments: commonArgs + masterArgs + ["-o", "BatchMode=yes"] + host.sshTargetArgs,
-            timeout: 30)
+            arguments: commonArgs + masterArgs
+                + ["-o", "PreferredAuthentications=publickey"] + host.sshTargetArgs,
+            environment: askpassEnvironment(for: host),
+            timeout: 90)
     }
 
     private static func askpassEnvironment(for host: Host) -> [String: String] {
@@ -88,9 +97,10 @@ enum SSHService {
             timeout: 180)
     }
 
-    /// 内嵌终端会话的 ssh 参数:带 ControlPath 以复用 master,秒开免认证。
+    /// 内嵌终端会话的 ssh 参数:带 ControlPath 以复用 master,秒开免认证;
+    /// 终端里手输的 passphrase 同样经 UseKeychain 入钥匙串。
     static func sessionArgs(for host: Host) -> [String] {
-        controlArgs + host.sshTargetArgs
+        controlArgs + keychainArgs + host.sshTargetArgs
     }
 
     /// 外部终端会话命令(Terminal.app / iTerm2)。

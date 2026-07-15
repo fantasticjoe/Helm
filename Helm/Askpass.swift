@@ -6,8 +6,9 @@ import Foundation
 ///
 /// 提示分流:
 /// - 密码类提示 → 优先 Keychain,缺失时弹原生密码框
+/// - 密钥 passphrase → 弹原生口令框,验证后由 ssh(UseKeychain)存入系统钥匙串
 /// - 2FA/验证码等其他提示 → 弹原生输入框(明文,便于核对验证码)
-/// - passphrase / yes-no 确认 → 拒绝(密钥口令交给 agent,host key 由 accept-new 处理)
+/// - yes-no 确认 → 拒绝(host key 由 accept-new 处理,变更则硬失败)
 @MainActor
 enum Askpass {
     static func runIfRequested() {
@@ -18,7 +19,19 @@ enum Askpass {
         let prompt = rawPrompt.lowercased()
         guard let alias = env["HELM_HOST_ALIAS"], !alias.isEmpty else { exit(1) }
 
-        if prompt.contains("passphrase") || prompt.contains("yes/no") { exit(1) }
+        if prompt.contains("yes/no") { exit(1) }
+
+        // 密钥口令:弹一次原生输入框;验证通过后 ssh(UseKeychain)自行存入系统钥匙串,
+        // 之后连接全程静默——Helm 不存储 passphrase。
+        if prompt.contains("passphrase") {
+            if let typed = presentDialog(
+                title: "输入密钥口令 — \(alias)",
+                prompt: rawPrompt + "\n\n验证通过后 ssh 会将口令存入钥匙串,下次连接免输入。",
+                secure: true) {
+                emit(typed)
+            }
+            exit(1)
+        }
 
         if prompt.contains("password") || prompt.contains("密码") {
             if let password = KeychainStore.password(for: alias) {

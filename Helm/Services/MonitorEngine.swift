@@ -218,14 +218,17 @@ final class MonitorEngine {
 
         switch host.meta.auth {
         case .key:
-            let result = await SSHService.establishMasterSilently(host)
+            let result = await SSHService.establishMasterWithKey(host)
             var established = result.succeeded
             if !established { established = await SSHService.checkMaster(host) }
             if established {
                 setState(host.id, .online)
                 await refresh(host)
             } else {
-                failConnect(host.id, error: lastLine(result.stderr), state: .unreachable)
+                let authFailed = result.stderr.lowercased().contains("permission denied")
+                failConnect(host.id,
+                            error: lastLine(result.stderr),
+                            state: authFailed ? .authFailed : .unreachable)
             }
 
         case .password:
