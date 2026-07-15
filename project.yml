@@ -23,6 +23,13 @@ targets:
     platform: macOS
     sources:
       - Helm
+      # Icon Composer 产物,由 actool 编译为 app 图标
+      - path: Helm.icon
+        type: file
+        buildPhase: resources
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: Helm
     dependencies:
       - package: SwiftTerm
     info:

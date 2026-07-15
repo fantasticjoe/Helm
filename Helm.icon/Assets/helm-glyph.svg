@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Helm 舵轮 glyph:单色白、透明底,供 Icon Composer 作前景层。
+       颜色/玻璃效果在 Icon Composer 里调,这里保持纯平。 -->
+  <g transform="translate(512,512)" fill="none" stroke="#FFFFFF" stroke-linecap="round">
+    <!-- 外环 -->
+    <circle r="280" stroke-width="60"/>
+    <!-- 八根辐条,延伸出环外形成把手 -->
+    <g stroke-width="52">
+      <line x1="110" y1="0" x2="430" y2="0"/>
+      <line x1="78" y1="78" x2="304" y2="304"/>
+      <line x1="0" y1="110" x2="0" y2="430"/>
+      <line x1="-78" y1="78" x2="-304" y2="304"/>
+      <line x1="-110" y1="0" x2="-430" y2="0"/>
+      <line x1="-78" y1="-78" x2="-304" y2="-304"/>
+      <line x1="0" y1="-110" x2="0" y2="-430"/>
+      <line x1="78" y1="-78" x2="304" y2="-304"/>
+    </g>
+  </g>
+  <!-- 轮毂 -->
+  <circle cx="512" cy="512" r="108" fill="#FFFFFF"/>
+</svg>
