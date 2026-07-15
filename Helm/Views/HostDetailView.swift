@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HostDetailView: View {
     @Environment(MonitorEngine.self) private var engine
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.panelDismiss) private var dismiss
     let initial: Host
     var onEdit: (HostMeta) -> Void
     var onBrowse: (Host) -> Void

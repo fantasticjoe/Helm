@@ -3,7 +3,7 @@ import SwiftUI
 
 struct BatchCommandView: View {
     @Environment(MonitorEngine.self) private var engine
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.panelDismiss) private var dismiss
     @State private var runner = BatchRunner()
     @State private var command = ""
     @State private var selection: Set<String> = []

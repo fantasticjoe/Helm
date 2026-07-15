@@ -2,7 +2,7 @@ import SwiftUI
 
 struct QuickConnectView: View {
     @Environment(MonitorEngine.self) private var engine
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.panelDismiss) private var dismiss
     @State private var query = ""
     @FocusState private var searchFocused: Bool
 

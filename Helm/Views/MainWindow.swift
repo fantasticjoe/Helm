@@ -100,36 +100,37 @@ struct MainWindow: View {
                 .help("添加主机 (⌘N)")
             }
         }
-        .sheet(item: $selectedHost) { host in
+        .panel(item: $selectedHost) { host in
             HostDetailView(initial: host) { meta in
                 selectedHost = nil
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     editorTarget = .edit(meta)
                 }
             } onBrowse: { browseHost in
                 selectedHost = nil
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     fileBrowserHost = browseHost
                 }
             }
         }
-        .sheet(item: $fileBrowserHost) { host in
+        .panel(item: $fileBrowserHost) { host in
             FileBrowserView(host: host)
         }
+        .panel(isPresented: $engine.quickConnectPresented) {
+            QuickConnectView()
+        }
+        .panel(isPresented: $importPresented) {
+            ImportSheet()
+        }
+        .panel(isPresented: $batchPresented) {
+            BatchCommandView()
+        }
+        // 编辑器与密码输入是表单,保留模态 sheet,防止误点空白丢失输入
         .sheet(item: $editorTarget) { target in
             HostEditorView(target: target)
         }
-        .sheet(isPresented: $engine.quickConnectPresented) {
-            QuickConnectView()
-        }
         .sheet(item: $engine.passwordRequest) { request in
             PasswordPromptView(alias: request.alias)
-        }
-        .sheet(isPresented: $importPresented) {
-            ImportSheet()
-        }
-        .sheet(isPresented: $batchPresented) {
-            BatchCommandView()
         }
     }
 
@@ -331,7 +332,7 @@ struct SidebarView: View {
 
 struct ImportSheet: View {
     @Environment(MonitorEngine.self) private var engine
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.panelDismiss) private var dismiss
     @State private var selection: Set<String> = []
 
     var body: some View {

@@ -115,7 +115,7 @@ final class FileBrowserModel {
 }
 
 struct FileBrowserView: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.panelDismiss) private var dismiss
     @State private var model: FileBrowserModel
     @State private var selection: Set<String> = []
 
