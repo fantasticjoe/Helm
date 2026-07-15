@@ -6,6 +6,18 @@ struct PasswordRequest: Identifiable, Sendable {
     var id: String { alias }
 }
 
+/// 主窗口 detail 区的一个内嵌终端 Tab。
+struct TerminalTab: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let alias: String
+    var title: String
+}
+
+enum DetailTab: Hashable, Sendable {
+    case hosts
+    case terminal(UUID)
+}
+
 /// 全局调度中枢:主机清单、状态机、轮询、连接动作、通知阈值。全部 UI 状态在主线程。
 @MainActor
 @Observable
@@ -18,6 +30,8 @@ final class MonitorEngine {
 
     var quickConnectPresented = false
     var passwordRequest: PasswordRequest?
+    var terminalTabs: [TerminalTab] = []
+    var selectedTab: DetailTab = .hosts
 
     private var metas: [HostMeta] = []
     private var configEntries: [SSHConfigEntry] = []
@@ -266,6 +280,45 @@ final class MonitorEngine {
 
     func disconnectAll() {
         for host in hosts { disconnect(host) }
+    }
+
+    /// 打开终端会话的唯一入口:偏好内嵌 → 主窗口新 Tab;否则调起外部终端 app。
+    func openTerminal(_ host: Host) {
+        if TerminalLauncher.useBuiltin {
+            let tab = TerminalTab(id: UUID(), alias: host.meta.alias, title: host.name)
+            terminalTabs.append(tab)
+            selectedTab = .terminal(tab.id)
+        } else {
+            TerminalLauncher.open(command: SSHService.sessionCommandLine(for: host))
+        }
+    }
+
+    func closeTerminalTab(_ id: UUID) {
+        guard let index = terminalTabs.firstIndex(where: { $0.id == id }) else { return }
+        terminalTabs.remove(at: index)
+        if selectedTab == .terminal(id) {
+            if terminalTabs.isEmpty {
+                selectedTab = .hosts
+            } else {
+                selectedTab = .terminal(terminalTabs[min(index, terminalTabs.count - 1)].id)
+            }
+        }
+    }
+
+    /// 会话结束后原位重连:同位置换新 UUID → 视图重建 → 新 ssh 会话。
+    func reopenTerminalTab(_ id: UUID) {
+        guard let index = terminalTabs.firstIndex(where: { $0.id == id }) else { return }
+        let old = terminalTabs[index]
+        let fresh = TerminalTab(
+            id: UUID(), alias: old.alias,
+            title: host(alias: old.alias)?.name ?? old.alias)
+        terminalTabs[index] = fresh
+        selectedTab = .terminal(fresh.id)
+    }
+
+    func updateTerminalTabTitle(_ id: UUID, title: String) {
+        guard let index = terminalTabs.firstIndex(where: { $0.id == id }), !title.isEmpty else { return }
+        terminalTabs[index].title = title
     }
 
     /// 把本地公钥装到远端 authorized_keys,返回 (是否成功, 给用户的消息)。

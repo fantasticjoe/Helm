@@ -2,25 +2,23 @@ import AppKit
 import SwiftTerm
 import SwiftUI
 
-/// 一次内嵌终端会话的窗口参数。id 保证同一主机可以开多个窗口。
-struct TerminalSessionRequest: Codable, Hashable {
-    var id = UUID()
-    var alias: String
-}
-
-/// 内嵌终端窗口内容:SwiftTerm 跑 ssh,带 ControlPath 复用 master。
-struct TerminalWindow: View {
+/// 主窗口 detail 区的内嵌终端面板:SwiftTerm 跑 ssh,带 ControlPath 复用 master。
+/// 注意:该视图靠 opacity 切换显隐——一旦移出视图层级,PTY 关闭、会话结束。
+struct TerminalTabView: View {
     @Environment(MonitorEngine.self) private var engine
-    @Environment(\.dismiss) private var dismiss
-    let request: TerminalSessionRequest
+    let tab: TerminalTab
 
-    @State private var title = ""
     @State private var sessionEnded = false
 
     var body: some View {
-        if let host = engine.host(alias: request.alias) {
+        if let host = engine.host(alias: tab.alias) {
             VStack(spacing: 0) {
-                SSHTerminal(host: host, title: $title, sessionEnded: $sessionEnded)
+                SSHTerminal(
+                    host: host,
+                    title: Binding(
+                        get: { tab.title },
+                        set: { engine.updateTerminalTabTitle(tab.id, title: $0) }),
+                    sessionEnded: $sessionEnded)
                 if sessionEnded {
                     Divider()
                     HStack {
@@ -30,22 +28,21 @@ struct TerminalWindow: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Button("关闭窗口") { dismiss() }
+                        Button("重新连接") { engine.reopenTerminalTab(tab.id) }
+                            .controlSize(.small)
+                        Button("关闭标签页") { engine.closeTerminalTab(tab.id) }
                             .controlSize(.small)
                     }
                     .padding(8)
                 }
             }
-            .navigationTitle(title.isEmpty ? host.name : title)
-            .frame(minWidth: 480, minHeight: 300)
         } else {
-            ContentUnavailableView("主机不存在", systemImage: "questionmark.circle")
-                .frame(minWidth: 480, minHeight: 300)
+            ContentUnavailableView("主机已删除", systemImage: "questionmark.circle")
         }
     }
 }
 
-private struct SSHTerminal: NSViewRepresentable {
+struct SSHTerminal: NSViewRepresentable {
     let host: Host
     @Binding var title: String
     @Binding var sessionEnded: Bool

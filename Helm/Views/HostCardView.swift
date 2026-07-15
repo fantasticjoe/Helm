@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HostCardView: View {
     @Environment(MonitorEngine.self) private var engine
-    @Environment(\.openWindow) private var openWindow
     let host: Host
     var onOpen: () -> Void
     var onEdit: () -> Void
@@ -32,7 +31,7 @@ struct HostCardView: View {
         .onTapGesture(perform: onOpen)
         .contextMenu {
             Button("查看详情") { onOpen() }
-            Button("打开终端") { SessionLauncher.open(host, openWindow: openWindow) }
+            Button("打开终端") { engine.openTerminal(host) }
             Button("浏览文件…") { onBrowse() }
             Button("立即刷新") { Task { await engine.refresh(host) } }
             if host.meta.capabilities.contains(.gpu) || !(status.metrics?.gpus.isEmpty ?? true) {
@@ -154,7 +153,7 @@ struct HostCardView: View {
                     .controlSize(.small)
             }
             Button {
-                SessionLauncher.open(host, openWindow: openWindow)
+                engine.openTerminal(host)
             } label: {
                 Label("终端", systemImage: "terminal")
             }

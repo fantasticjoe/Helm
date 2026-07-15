@@ -1,19 +1,5 @@
 import AppKit
 import Foundation
-import SwiftUI
-
-/// 会话入口的统一分发:按用户偏好走内嵌终端窗口或外部终端 app。
-@MainActor
-enum SessionLauncher {
-    static func open(_ host: Host, openWindow: OpenWindowAction) {
-        if TerminalLauncher.useBuiltin {
-            openWindow(id: "terminal", value: TerminalSessionRequest(alias: host.meta.alias))
-            NSApp.activate(ignoringOtherApps: true)
-        } else {
-            TerminalLauncher.open(command: SSHService.sessionCommandLine(for: host))
-        }
-    }
-}
 
 @MainActor
 enum TerminalLauncher {

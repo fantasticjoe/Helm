@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HostDetailView: View {
     @Environment(MonitorEngine.self) private var engine
-    @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     let initial: Host
     var onEdit: (HostMeta) -> Void
@@ -135,7 +134,9 @@ struct HostDetailView: View {
                     .buttonStyle(.borderedProminent)
             }
             Button {
-                SessionLauncher.open(host, openWindow: openWindow)
+                engine.openTerminal(host)
+                // 内嵌 Tab 在主窗口里,关掉详情页让用户直接看到终端
+                dismiss()
             } label: {
                 Label("终端", systemImage: "terminal")
             }

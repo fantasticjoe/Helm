@@ -17,14 +17,6 @@ struct HelmApp: App {
         }
         .defaultSize(width: 1000, height: 640)
 
-        WindowGroup("终端", id: "terminal", for: TerminalSessionRequest.self) { $request in
-            if let request {
-                TerminalWindow(request: request)
-                    .environment(engine)
-            }
-        }
-        .defaultSize(width: 760, height: 480)
-
         MenuBarExtra {
             MenuBarView()
                 .environment(engine)

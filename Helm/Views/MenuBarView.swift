@@ -94,7 +94,12 @@ private struct MenuBarHostRow: View {
                 .help("建立连接")
             }
             Button {
-                SessionLauncher.open(host, openWindow: openWindow)
+                // 内嵌 Tab 在主窗口里,先确保主窗口在前
+                if TerminalLauncher.useBuiltin {
+                    openWindow(id: "main")
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                engine.openTerminal(host)
             } label: {
                 Image(systemName: "terminal")
             }

@@ -128,29 +128,160 @@ struct MainWindow: View {
         return "全部主机"
     }
 
-    @ViewBuilder
     private var detailContent: some View {
+        VStack(spacing: 0) {
+            if !engine.terminalTabs.isEmpty {
+                TerminalTabBar()
+                Divider()
+            }
+            // opacity 切换而非 if-else:终端 NSView 必须常驻层级,否则会话被杀
+            ZStack {
+                hostsContent
+                    .opacity(engine.selectedTab == .hosts ? 1 : 0)
+                    .allowsHitTesting(engine.selectedTab == .hosts)
+                ForEach(engine.terminalTabs) { tab in
+                    TerminalTabView(tab: tab)
+                        .opacity(engine.selectedTab == .terminal(tab.id) ? 1 : 0)
+                        .allowsHitTesting(engine.selectedTab == .terminal(tab.id))
+                }
+            }
+        }
+    }
+
+    private var onlineHosts: [Host] {
+        filteredHosts.filter { host in
+            let state = engine.status(for: host).state
+            return state == .online || state == .connecting
+        }
+    }
+
+    private var offlineHosts: [Host] {
+        filteredHosts.filter { host in
+            let state = engine.status(for: host).state
+            return state != .online && state != .connecting
+        }
+    }
+
+    @ViewBuilder
+    private var hostsContent: some View {
         if engine.hosts.isEmpty {
             OnboardingView { editorTarget = .new }
         } else if filteredHosts.isEmpty {
             ContentUnavailableView("没有匹配的主机", systemImage: "magnifyingglass")
         } else {
             ScrollView {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 310, maximum: 480), spacing: 16)],
-                    spacing: 16
-                ) {
-                    ForEach(filteredHosts) { host in
-                        HostCardView(
-                            host: host,
-                            onOpen: { selectedHost = host },
-                            onEdit: { editorTarget = .edit(host.meta) },
-                            onBrowse: { fileBrowserHost = host })
+                VStack(alignment: .leading, spacing: 14) {
+                    if !onlineHosts.isEmpty {
+                        sectionHeader("在线", count: onlineHosts.count, dotColor: .green)
+                        hostGrid(onlineHosts)
+                    }
+                    if !offlineHosts.isEmpty {
+                        sectionHeader("未连接", count: offlineHosts.count, dotColor: .gray.opacity(0.45))
+                            .padding(.top, onlineHosts.isEmpty ? 0 : 10)
+                        hostGrid(offlineHosts)
                     }
                 }
                 .padding(20)
+                .animation(.default, value: onlineHosts.map(\.id))
             }
         }
+    }
+
+    private func sectionHeader(_ title: String, count: Int, dotColor: Color) -> some View {
+        HStack(spacing: 7) {
+            Circle().fill(dotColor).frame(width: 7, height: 7)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            Text("\(count)")
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func hostGrid(_ hosts: [Host]) -> some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 310, maximum: 480), spacing: 16)],
+            spacing: 16
+        ) {
+            ForEach(hosts) { host in
+                HostCardView(
+                    host: host,
+                    onOpen: { selectedHost = host },
+                    onEdit: { editorTarget = .edit(host.meta) },
+                    onBrowse: { fileBrowserHost = host })
+            }
+        }
+    }
+}
+
+/// detail 区顶部的终端 Tab 栏:「主机」固定第一个,每个会话一个 chip。
+struct TerminalTabBar: View {
+    @Environment(MonitorEngine.self) private var engine
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 5) {
+                TabChipFrame(selected: engine.selectedTab == .hosts) {
+                    engine.selectedTab = .hosts
+                } content: {
+                    Image(systemName: "square.grid.2x2")
+                        .font(.caption)
+                    Text("主机")
+                        .font(.caption)
+                }
+                ForEach(engine.terminalTabs) { tab in
+                    TerminalTabChip(tab: tab)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+        }
+    }
+}
+
+private struct TerminalTabChip: View {
+    @Environment(MonitorEngine.self) private var engine
+    let tab: TerminalTab
+
+    var body: some View {
+        TabChipFrame(selected: engine.selectedTab == .terminal(tab.id)) {
+            engine.selectedTab = .terminal(tab.id)
+        } content: {
+            if let host = engine.host(alias: tab.alias) {
+                StatusDot(state: engine.status(for: host).state, size: 6)
+            }
+            Text(tab.title.isEmpty ? tab.alias : tab.title)
+                .font(.caption)
+                .lineLimit(1)
+                .frame(maxWidth: 150)
+            Button {
+                engine.closeTerminalTab(tab.id)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tertiary)
+            .help("关闭标签页")
+        }
+    }
+}
+
+private struct TabChipFrame<Content: View>: View {
+    let selected: Bool
+    let action: () -> Void
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack(spacing: 6) { content }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(selected ? Color.accentColor.opacity(0.16) : .clear))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .onTapGesture(perform: action)
     }
 }
 

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct QuickConnectView: View {
     @Environment(MonitorEngine.self) private var engine
-    @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @FocusState private var searchFocused: Bool
@@ -29,7 +28,7 @@ struct QuickConnectView: View {
                     .focused($searchFocused)
                     .onSubmit {
                         if let first = results.first {
-                            SessionLauncher.open(first, openWindow: openWindow)
+                            engine.openTerminal(first)
                             dismiss()
                         }
                     }
@@ -44,7 +43,7 @@ struct QuickConnectView: View {
                     LazyVStack(spacing: 2) {
                         ForEach(results) { host in
                             Button {
-                                SessionLauncher.open(host, openWindow: openWindow)
+                                engine.openTerminal(host)
                                 dismiss()
                             } label: {
                                 HStack(spacing: 9) {
