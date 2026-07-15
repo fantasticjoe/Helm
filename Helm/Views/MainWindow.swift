@@ -50,10 +50,10 @@ struct MainWindow: View {
             detailContent
                 .navigationTitle(navigationTitle)
         }
-        .searchable(text: $searchText, prompt: "搜索主机、地址或标签")
+        .searchable(text: $searchText, placement: .sidebar, prompt: "搜索主机、地址或标签")
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                if !engine.pendingImport.isEmpty && !engine.hosts.isEmpty {
+            if !engine.pendingImport.isEmpty && !engine.hosts.isEmpty {
+                ToolbarItem {
                     Button {
                         importPresented = true
                     } label: {
@@ -61,6 +61,9 @@ struct MainWindow: View {
                     }
                     .help("在 ~/.ssh/config 中发现尚未导入的主机")
                 }
+            }
+            // 会话操作一组
+            ToolbarItemGroup {
                 Button {
                     engine.quickConnectPresented = true
                 } label: {
@@ -76,18 +79,25 @@ struct MainWindow: View {
                 .keyboardShortcut("b")
                 .help("在多台主机上执行同一条命令 (⌘B)")
                 .disabled(engine.hosts.isEmpty)
+            }
+            // 视图与新建各自独立成组
+            ToolbarItem {
                 Button {
                     Task { await engine.refreshAll() }
                 } label: {
                     Label("刷新", systemImage: "arrow.clockwise")
                 }
                 .keyboardShortcut("r")
+                .help("立即刷新全部主机 (⌘R)")
+            }
+            ToolbarItem {
                 Button {
                     editorTarget = .new
                 } label: {
                     Label("添加主机", systemImage: "plus")
                 }
                 .keyboardShortcut("n")
+                .help("添加主机 (⌘N)")
             }
         }
         .sheet(item: $selectedHost) { host in
