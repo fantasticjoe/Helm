@@ -2,6 +2,10 @@ import SwiftUI
 
 enum SidebarFilter: Hashable {
     case all
+    case online
+    case alerts
+    case gpu
+    case slurm
     case tag(String)
 }
 
@@ -29,7 +33,18 @@ struct MainWindow: View {
 
     private var filteredHosts: [Host] {
         var hosts = engine.hosts
-        if case .tag(let tag) = filter {
+        switch filter ?? .all {
+        case .all:
+            break
+        case .online:
+            hosts = hosts.filter { isActive($0) }
+        case .alerts:
+            hosts = hosts.filter { hasAlert($0) }
+        case .gpu:
+            hosts = hosts.filter { $0.meta.capabilities.contains(.gpu) }
+        case .slurm:
+            hosts = hosts.filter { $0.meta.capabilities.contains(.slurm) }
+        case .tag(let tag):
             hosts = hosts.filter { $0.meta.tags.contains(tag) }
         }
         let query = searchText.trimmingCharacters(in: .whitespaces)
@@ -42,6 +57,21 @@ struct MainWindow: View {
         }
     }
 
+    private func isActive(_ host: Host) -> Bool {
+        let state = engine.status(for: host).state
+        return state == .online || state == .connecting
+    }
+
+    private func hasAlert(_ host: Host) -> Bool {
+        let status = engine.status(for: host)
+        if status.state == .unreachable || status.state == .authFailed { return true }
+        if let worst = status.metrics?.worstDisk {
+            let threshold = UserDefaults.standard.integer(forKey: SettingsKeys.diskThreshold)
+            if worst.usedPercent >= max(threshold, 1) { return true }
+        }
+        return false
+    }
+
     var body: some View {
         @Bindable var engine = engine
         NavigationSplitView {
@@ -51,6 +81,10 @@ struct MainWindow: View {
                 .navigationTitle(navigationTitle)
         }
         .searchable(text: $searchText, placement: .sidebar, prompt: "搜索主机、地址或标签")
+        .onChange(of: filter) {
+            // 点过滤器即回到主机视图
+            engine.selectedTab = .hosts
+        }
         .toolbar {
             if !engine.pendingImport.isEmpty && !engine.hosts.isEmpty {
                 ToolbarItem {
@@ -135,8 +169,14 @@ struct MainWindow: View {
     }
 
     private var navigationTitle: String {
-        if case .tag(let tag) = filter { return tag }
-        return "全部主机"
+        switch filter ?? .all {
+        case .all: "全部主机"
+        case .online: "在线主机"
+        case .alerts: "有告警"
+        case .gpu: "GPU 主机"
+        case .slurm: "SLURM 集群"
+        case .tag(let tag): tag
+        }
     }
 
     private var detailContent: some View {
@@ -300,11 +340,58 @@ struct SidebarView: View {
     @Environment(MonitorEngine.self) private var engine
     @Binding var filter: SidebarFilter?
 
+    private func count(_ predicate: (Host) -> Bool) -> Int {
+        engine.hosts.filter(predicate).count
+    }
+
+    private var alertCount: Int {
+        count { host in
+            let status = engine.status(for: host)
+            if status.state == .unreachable || status.state == .authFailed { return true }
+            if let worst = status.metrics?.worstDisk {
+                let threshold = UserDefaults.standard.integer(forKey: SettingsKeys.diskThreshold)
+                if worst.usedPercent >= max(threshold, 1) { return true }
+            }
+            return false
+        }
+    }
+
     var body: some View {
         List(selection: $filter) {
-            Label("全部主机", systemImage: "square.grid.2x2")
-                .tag(SidebarFilter.all)
-                .badge(engine.totalCount)
+            Section("浏览") {
+                Label("全部主机", systemImage: "square.grid.2x2")
+                    .tag(SidebarFilter.all)
+                    .badge(engine.totalCount)
+                Label {
+                    Text("在线")
+                } icon: {
+                    Image(systemName: "circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.system(size: 8))
+                }
+                .tag(SidebarFilter.online)
+                .badge(engine.onlineCount)
+                if alertCount > 0 {
+                    Label {
+                        Text("有告警")
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                    }
+                    .tag(SidebarFilter.alerts)
+                    .badge(alertCount)
+                }
+                if count({ $0.meta.capabilities.contains(.gpu) }) > 0 {
+                    Label("GPU 主机", systemImage: "memorychip")
+                        .tag(SidebarFilter.gpu)
+                        .badge(count { $0.meta.capabilities.contains(.gpu) })
+                }
+                if count({ $0.meta.capabilities.contains(.slurm) }) > 0 {
+                    Label("SLURM 集群", systemImage: "list.number")
+                        .tag(SidebarFilter.slurm)
+                        .badge(count { $0.meta.capabilities.contains(.slurm) })
+                }
+            }
             if !engine.allTags.isEmpty {
                 Section("标签") {
                     ForEach(engine.allTags, id: \.self) { tag in
@@ -314,8 +401,15 @@ struct SidebarView: View {
                     }
                 }
             }
+            if !engine.terminalTabs.isEmpty {
+                Section("终端") {
+                    ForEach(engine.terminalTabs) { tab in
+                        SidebarTerminalRow(tab: tab)
+                    }
+                }
+            }
         }
-        .navigationSplitViewColumnWidth(min: 170, ideal: 200)
+        .navigationSplitViewColumnWidth(min: 180, ideal: 210)
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 6) {
                 Circle().fill(.green).frame(width: 7, height: 7)
@@ -327,6 +421,45 @@ struct SidebarView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
         }
+    }
+}
+
+/// 侧栏终端会话行:点击切换到该 Tab,常驻小关闭钮。
+private struct SidebarTerminalRow: View {
+    @Environment(MonitorEngine.self) private var engine
+    let tab: TerminalTab
+
+    private var isSelected: Bool { engine.selectedTab == .terminal(tab.id) }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            if let host = engine.host(alias: tab.alias) {
+                StatusDot(state: engine.status(for: host).state, size: 6)
+            } else {
+                Image(systemName: "terminal").font(.caption2).foregroundStyle(.secondary)
+            }
+            Text(tab.title.isEmpty ? tab.alias : tab.title)
+                .font(.callout)
+                .lineLimit(1)
+            Spacer()
+            Button {
+                engine.closeTerminalTab(tab.id)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tertiary)
+            .help("关闭标签页")
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(isSelected ? Color.accentColor.opacity(0.16) : .clear))
+        .contentShape(Rectangle())
+        .onTapGesture { engine.selectedTab = .terminal(tab.id) }
+        .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
     }
 }
 
