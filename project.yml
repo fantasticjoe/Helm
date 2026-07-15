@@ -1,0 +1,59 @@
+name: Helm
+options:
+  bundleIdPrefix: app.helm
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_HARDENED_RUNTIME: NO
+packages:
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    # 1.12.0 起引入 Metal GPU 渲染,需要单独下载数 GB 的 Metal 工具链;
+    # 1.11.2 是 CoreText 渲染的最后一个版本,功能完整。要升级先装:
+    # xcodebuild -downloadComponent MetalToolchain
+    exactVersion: "1.11.2"
+targets:
+  Helm:
+    type: application
+    platform: macOS
+    sources:
+      - Helm
+    dependencies:
+      - package: SwiftTerm
+    info:
+      path: Helm/Info.plist
+      properties:
+        CFBundleDisplayName: Helm
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSAppleEventsUsageDescription: Helm 需要通过终端应用打开 SSH 会话。
+  HelmTests:
+    type: bundle.unit-test
+    platform: macOS
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    sources:
+      - HelmTests
+      - path: Helm/Models/Metrics.swift
+      - path: Helm/Models/Host.swift
+      - path: Helm/Services/SSHConfigParser.swift
+      - path: Helm/Services/ProbeParsers.swift
+      - path: Helm/Services/ProcessRunner.swift
+      - path: Helm/Services/SSHService.swift
+      - path: Helm/Services/RemoteFileService.swift
+schemes:
+  Helm:
+    build:
+      targets:
+        Helm: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - HelmTests
