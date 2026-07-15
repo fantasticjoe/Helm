@@ -18,31 +18,31 @@ struct HostDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-                .padding(18)
+                .padding(16)
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    connectionInfo
-                    if host.meta.auth != .key {
-                        keyMigration
-                    }
-                    if let metrics = status.metrics {
-                        metricsSections(metrics)
-                    }
-                    if let error = status.lastError {
-                        GroupBox("最近错误") {
-                            Text(error)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.red)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+            Form {
+                connectionSection
+                if host.meta.auth != .key {
+                    keyMigrationSection
+                }
+                if let metrics = status.metrics {
+                    systemSection(metrics)
+                    if !metrics.disks.isEmpty { diskSection(metrics) }
+                    if !metrics.gpus.isEmpty { gpuSection(metrics) }
+                    if !metrics.slurmJobs.isEmpty { slurmSection(metrics) }
+                }
+                if let error = status.lastError {
+                    Section("最近错误") {
+                        Text(error)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.red)
                     }
                 }
-                .padding(18)
             }
+            .formStyle(.grouped)
             Divider()
             footer
-                .padding(14)
+                .padding(12)
         }
         .frame(width: 500, height: 580)
         .confirmationDialog("删除主机 \u{201C}\(host.name)\u{201D}?", isPresented: $confirmDelete) {
@@ -81,9 +81,89 @@ struct HostDetailView: View {
         }
     }
 
-    private var keyMigration: some View {
-        GroupBox("迁移到密钥登录") {
-            HStack(spacing: 10) {
+    // MARK: - 头部
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            StatusDot(state: status.state, size: 12)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(host.name)
+                    .font(.title3.bold())
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(status.state.label)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(status.state.color)
+                    Text(host.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            Spacer(minLength: 16)
+            switch status.state {
+            case .connecting:
+                ProgressView().controlSize(.small)
+            case .online:
+                Button("断开") { engine.disconnect(host) }
+            default:
+                Button("连接") { engine.connect(host) }
+                    .buttonStyle(.borderedProminent)
+            }
+            Button {
+                engine.openTerminal(host)
+                dismiss()
+            } label: {
+                Image(systemName: "terminal")
+            }
+            .help("打开终端会话")
+            Button {
+                onBrowse(host)
+            } label: {
+                Image(systemName: "folder")
+            }
+            .help("浏览文件")
+            Button {
+                onEdit(host.meta)
+            } label: {
+                Image(systemName: "pencil")
+            }
+            .help("编辑主机")
+        }
+    }
+
+    // MARK: - 分组内容
+
+    private var connectionSection: some View {
+        Section("连接信息") {
+            LabeledContent("别名", value: host.meta.alias)
+            if let hostName = host.effectiveHostName {
+                LabeledContent("地址", value: hostName)
+            }
+            if let user = host.effectiveUser {
+                LabeledContent("用户", value: user)
+            }
+            if let port = host.effectivePort {
+                LabeledContent("端口", value: String(port))
+            }
+            if let jump = host.proxyJump {
+                LabeledContent("跳板", value: jump)
+            }
+            LabeledContent("认证", value: host.meta.auth.label)
+            if host.meta.auth == .password {
+                LabeledContent("密码", value: KeychainStore.hasPassword(for: host.meta.alias) ? "已存入钥匙串" : "未保存")
+            }
+            LabeledContent("来源", value: host.meta.source == .sshConfig ? "~/.ssh/config" : "手动添加")
+            if !host.meta.tags.isEmpty {
+                LabeledContent("标签", value: host.meta.tags.joined(separator: ", "))
+            }
+        }
+    }
+
+    private var keyMigrationSection: some View {
+        Section("迁移到密钥登录") {
+            HStack {
                 Button {
                     installingKey = true
                     Task {
@@ -101,7 +181,7 @@ struct HostDetailView: View {
                 }
                 Spacer()
                 Text(status.state == .online || status.masterAlive
-                     ? "写入远端 authorized_keys,之后可免密登录"
+                     ? "写入远端 authorized_keys"
                      : "需要先建立连接")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -109,174 +189,106 @@ struct HostDetailView: View {
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            StatusDot(state: status.state, size: 12)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(host.name).font(.title2.bold())
-                HStack(spacing: 6) {
-                    Text(status.state.label)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(status.state.color)
-                    Text(host.subtitle)
-                        .font(.caption)
+    private func systemSection(_ metrics: HostMetrics) -> some View {
+        Section("系统") {
+            if let l1 = metrics.load1, let l5 = metrics.load5, let l15 = metrics.load15 {
+                LabeledContent("负载") {
+                    Text(String(format: "%.2f · %.2f · %.2f", l1, l5, l15))
+                        .monospacedDigit()
+                }
+            }
+            if let percent = metrics.memUsedPercent,
+               let total = metrics.memTotalMB, let avail = metrics.memAvailableMB {
+                VStack(alignment: .leading, spacing: 5) {
+                    LabeledContent("内存") {
+                        Text("\(percent)% · 可用 \(gigabytesFromMB(avail)) / \(gigabytesFromMB(total))")
+                            .monospacedDigit()
+                    }
+                    CapacityBar(fraction: Double(percent) / 100, tint: usageColor(percent))
+                }
+            }
+            if !metrics.users.isEmpty {
+                LabeledContent("在线用户") {
+                    Text(metrics.users.joined(separator: ", "))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+            LabeledContent("更新于") {
+                Text(metrics.updatedAt, format: .dateTime.hour().minute().second())
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    private func diskSection(_ metrics: HostMetrics) -> some View {
+        Section("磁盘") {
+            ForEach(metrics.disks.sorted { $0.usedPercent > $1.usedPercent }, id: \.mount) { disk in
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text(disk.mount)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Text("\(disk.usedPercent)% · \(gigabytesFromKB(disk.usedKB)) / \(gigabytesFromKB(disk.totalKB))")
+                            .font(.callout)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    CapacityBar(fraction: Double(disk.usedPercent) / 100, tint: usageColor(disk.usedPercent))
+                }
+            }
+        }
+    }
+
+    private func gpuSection(_ metrics: HostMetrics) -> some View {
+        Section {
+            ForEach(metrics.gpus, id: \.index) { gpu in
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text("#\(gpu.index) \(gpu.name)")
+                            .lineLimit(1)
+                        Spacer()
+                        Text("\(gpu.utilization)% · 显存 \(gigabytesFromMB(gpu.memUsedMB)) / \(gigabytesFromMB(gpu.memTotalMB))")
+                            .font(.callout)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    CapacityBar(fraction: Double(gpu.utilization) / 100, tint: usageColor(gpu.utilization))
+                }
+            }
+        } header: {
+            HStack {
+                Text("GPU")
+                Spacer()
+                Toggle("空闲时提醒一次", isOn: Binding(
+                    get: { host.meta.isWatchingGPU },
+                    set: { engine.setGPUWatch(alias: host.id, enabled: $0) }))
+                    .font(.caption)
+                    .toggleStyle(.checkbox)
+            }
+        }
+    }
+
+    private func slurmSection(_ metrics: HostMetrics) -> some View {
+        Section("SLURM 作业") {
+            ForEach(metrics.slurmJobs, id: \.id) { job in
+                HStack {
+                    Text(job.id)
+                        .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            switch status.state {
-            case .connecting:
-                ProgressView().controlSize(.small)
-            case .online:
-                Button("断开") { engine.disconnect(host) }
-            default:
-                Button("连接") { engine.connect(host) }
-                    .buttonStyle(.borderedProminent)
-            }
-            Button {
-                engine.openTerminal(host)
-                // 内嵌 Tab 在主窗口里,关掉详情页让用户直接看到终端
-                dismiss()
-            } label: {
-                Label("终端", systemImage: "terminal")
-            }
-            Button {
-                onBrowse(host)
-            } label: {
-                Label("文件", systemImage: "folder")
-            }
-            Button("编辑") { onEdit(host.meta) }
-        }
-    }
-
-    private var connectionInfo: some View {
-        GroupBox("连接信息") {
-            VStack(spacing: 6) {
-                LabeledContent("别名", value: host.meta.alias)
-                if let hostName = host.effectiveHostName {
-                    LabeledContent("地址", value: hostName)
-                }
-                if let user = host.effectiveUser {
-                    LabeledContent("用户", value: user)
-                }
-                if let port = host.effectivePort {
-                    LabeledContent("端口", value: String(port))
-                }
-                if let jump = host.proxyJump {
-                    LabeledContent("跳板", value: jump)
-                }
-                LabeledContent("认证", value: host.meta.auth.label)
-                if host.meta.auth == .password {
-                    LabeledContent("密码", value: KeychainStore.hasPassword(for: host.meta.alias) ? "已存入钥匙串" : "未保存")
-                }
-                LabeledContent("来源", value: host.meta.source == .sshConfig ? "~/.ssh/config" : "手动添加")
-                if !host.meta.tags.isEmpty {
-                    LabeledContent("标签", value: host.meta.tags.joined(separator: ", "))
-                }
-            }
-            .font(.callout)
-        }
-    }
-
-    @ViewBuilder
-    private func metricsSections(_ metrics: HostMetrics) -> some View {
-        GroupBox("系统") {
-            VStack(spacing: 6) {
-                if let l1 = metrics.load1, let l5 = metrics.load5, let l15 = metrics.load15 {
-                    LabeledContent("负载", value: String(format: "%.2f · %.2f · %.2f", l1, l5, l15))
-                }
-                if let percent = metrics.memUsedPercent,
-                   let total = metrics.memTotalMB, let avail = metrics.memAvailableMB {
-                    VStack(spacing: 4) {
-                        LabeledContent("内存") {
-                            Text("\(percent)% · 可用 \(gigabytesFromMB(avail)) / \(gigabytesFromMB(total))")
-                                .monospacedDigit()
-                        }
-                        CapacityBar(fraction: Double(percent) / 100, tint: usageColor(percent))
-                    }
-                }
-                if !metrics.users.isEmpty {
-                    LabeledContent("在线用户", value: metrics.users.joined(separator: ", "))
-                }
-                LabeledContent("更新于") {
-                    Text(metrics.updatedAt, format: .dateTime.hour().minute().second())
-                }
-            }
-            .font(.callout)
-        }
-
-        if !metrics.disks.isEmpty {
-            GroupBox("磁盘") {
-                VStack(spacing: 8) {
-                    ForEach(metrics.disks.sorted { $0.usedPercent > $1.usedPercent }, id: \.mount) { disk in
-                        VStack(spacing: 3) {
-                            HStack {
-                                Text(disk.mount)
-                                    .font(.callout)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                Spacer()
-                                Text("\(disk.usedPercent)% · \(gigabytesFromKB(disk.usedKB)) / \(gigabytesFromKB(disk.totalKB))")
-                                    .font(.caption)
-                                    .monospacedDigit()
-                                    .foregroundStyle(.secondary)
-                            }
-                            CapacityBar(fraction: Double(disk.usedPercent) / 100, tint: usageColor(disk.usedPercent))
-                        }
-                    }
-                }
-            }
-        }
-
-        if !metrics.gpus.isEmpty {
-            GroupBox("GPU") {
-                VStack(spacing: 8) {
-                    Toggle("有 GPU 空闲时提醒我一次(利用率 ≤10% 且显存基本空置)", isOn: Binding(
-                        get: { host.meta.isWatchingGPU },
-                        set: { engine.setGPUWatch(alias: host.id, enabled: $0) }))
+                    Text(job.name)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(job.state)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(job.state.uppercased().hasPrefix("R") ? .green : .orange)
+                    Text(job.time)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                    Text(job.partition)
                         .font(.caption)
-                    ForEach(metrics.gpus, id: \.index) { gpu in
-                        VStack(spacing: 3) {
-                            HStack {
-                                Text("#\(gpu.index) \(gpu.name)")
-                                    .font(.callout)
-                                    .lineLimit(1)
-                                Spacer()
-                                Text("\(gpu.utilization)% · 显存 \(gigabytesFromMB(gpu.memUsedMB)) / \(gigabytesFromMB(gpu.memTotalMB))")
-                                    .font(.caption)
-                                    .monospacedDigit()
-                                    .foregroundStyle(.secondary)
-                            }
-                            CapacityBar(fraction: Double(gpu.utilization) / 100, tint: usageColor(gpu.utilization))
-                        }
-                    }
-                }
-            }
-        }
-
-        if !metrics.slurmJobs.isEmpty {
-            GroupBox("SLURM 作业") {
-                VStack(spacing: 4) {
-                    ForEach(metrics.slurmJobs, id: \.id) { job in
-                        HStack {
-                            Text(job.id)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                            Text(job.name)
-                                .font(.callout)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(job.state)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(job.state.uppercased().hasPrefix("R") ? .green : .orange)
-                            Text(job.time)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                            Text(job.partition)
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
+                        .foregroundStyle(.tertiary)
                 }
             }
         }
