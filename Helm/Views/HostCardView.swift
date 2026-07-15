@@ -17,10 +17,13 @@ struct HostCardView: View {
             if let metrics = status.metrics {
                 metricsGrid(metrics)
             } else {
+                // 与 2×2 指标网格同高,保证所有卡片高度一致
                 Text(hint)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .lineLimit(2)
+                    .frame(height: 74, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             footer
         }
@@ -97,40 +100,57 @@ struct HostCardView: View {
         }
     }
 
+    /// 第四格的归属:GPU 机放 GPU,SLURM 机放作业,否则放在线用户。
+    private var fourthSlotIsUsers: Bool {
+        !(host.meta.capabilities.contains(.gpu)
+            || host.meta.capabilities.contains(.slurm)
+            || !(status.metrics?.gpus.isEmpty ?? true)
+            || !(status.metrics?.slurmJobs.isEmpty ?? true))
+    }
+
+    /// 固定 2×2 网格,缺数据显示「—」,格子定高——所有卡片高度一致。
     private func metricsGrid(_ metrics: HostMetrics) -> some View {
         LazyVGrid(
             columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)],
             alignment: .leading, spacing: 10
         ) {
-            if let load = metrics.load1 {
-                MetricCell(label: "负载", value: String(format: "%.2f", load))
-            }
-            if let memPercent = metrics.memUsedPercent, let total = metrics.memTotalMB {
+            Group {
                 MetricCell(
-                    label: "内存 \(gigabytesFromMB(total))",
-                    value: "\(memPercent)%",
-                    percent: memPercent)
+                    label: "负载",
+                    value: metrics.load1.map { String(format: "%.2f", $0) } ?? "—")
+                if let percent = metrics.memUsedPercent, let total = metrics.memTotalMB {
+                    MetricCell(label: "内存 \(gigabytesFromMB(total))", value: "\(percent)%", percent: percent)
+                } else {
+                    MetricCell(label: "内存", value: "—")
+                }
+                if let disk = metrics.worstDisk {
+                    MetricCell(label: "磁盘 \(disk.mount)", value: "\(disk.usedPercent)%", percent: disk.usedPercent)
+                } else {
+                    MetricCell(label: "磁盘", value: "—")
+                }
+                fourthCell(metrics)
             }
-            if let disk = metrics.worstDisk {
-                MetricCell(
-                    label: "磁盘 \(disk.mount)",
-                    value: "\(disk.usedPercent)%",
-                    percent: disk.usedPercent)
-            }
+            .frame(height: 32, alignment: .top)
+        }
+    }
+
+    @ViewBuilder
+    private func fourthCell(_ metrics: HostMetrics) -> some View {
+        if host.meta.capabilities.contains(.gpu) || !metrics.gpus.isEmpty {
             if let gpu = metrics.averageGPUUtilization {
                 MetricCell(
                     label: metrics.gpus.count > 1 ? "GPU ×\(metrics.gpus.count)" : "GPU",
                     value: "\(gpu)%",
                     percent: gpu)
+            } else {
+                MetricCell(label: "GPU", value: "—")
             }
-            if host.meta.capabilities.contains(.slurm) || !metrics.slurmJobs.isEmpty {
-                MetricCell(
-                    label: "作业",
-                    value: "\(metrics.runningJobs) R · \(metrics.pendingJobs) PD")
-            }
-            if !metrics.users.isEmpty {
-                MetricCell(label: "在线用户", value: "\(metrics.users.count) 人")
-            }
+        } else if host.meta.capabilities.contains(.slurm) || !metrics.slurmJobs.isEmpty {
+            MetricCell(label: "作业", value: "\(metrics.runningJobs) R · \(metrics.pendingJobs) PD")
+        } else {
+            MetricCell(
+                label: "在线用户",
+                value: metrics.users.isEmpty ? "—" : "\(metrics.users.count) 人")
         }
     }
 
@@ -160,8 +180,14 @@ struct HostCardView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             Spacer()
-            if let updated = status.metrics?.updatedAt {
-                Text(updated, format: .relative(presentation: .named))
+            if let metrics = status.metrics {
+                // 第四格被 GPU/作业占用时,在线用户挪到这里
+                if !fourthSlotIsUsers, !metrics.users.isEmpty {
+                    Label("\(metrics.users.count)", systemImage: "person.2")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Text(metrics.updatedAt, format: .relative(presentation: .named))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
