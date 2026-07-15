@@ -62,13 +62,14 @@ struct HostMeta: Codable, Identifiable, Hashable, Sendable {
     var isWatchingGPU: Bool { watchGPU == true }
 }
 
-/// 从 ~/.ssh/config 解析出的只读条目。
+/// 从 ~/.ssh/config 解析出的条目。
 struct SSHConfigEntry: Hashable, Sendable {
     var alias: String
     var hostName: String?
     var user: String?
     var port: Int?
     var proxyJump: String?
+    var identityFile: String?
 }
 
 /// 运行时主机 = 元数据 + (可选的)ssh config 条目。

@@ -121,6 +121,72 @@ final class MonitorEngine {
         rebuildHosts()
     }
 
+    // MARK: - ssh config 可视化编辑
+
+    /// 该主机的 config 块是否允许可视化编辑(单一具名别名的块)。
+    func configBlockEditable(alias: String) -> Bool {
+        SSHConfigStore.isEditable(alias: alias)
+    }
+
+    struct ConfigFields: Sendable {
+        var hostName = ""
+        var user = ""
+        var port = ""
+        var proxyJump = ""
+        var identityFile = ""
+    }
+
+    /// 更新既有主机块的连接字段。返回 nil 表示成功。
+    func updateConfigHost(alias: String, fields: ConfigFields) async -> String? {
+        let error = await SSHConfigStore.mutate(validateAlias: alias) { document in
+            document.setDirective(alias: alias, keyword: "hostname",
+                                  value: fields.hostName.isEmpty ? nil : fields.hostName)
+            document.setDirective(alias: alias, keyword: "user",
+                                  value: fields.user.isEmpty ? nil : fields.user)
+            document.setDirective(alias: alias, keyword: "port",
+                                  value: Int(fields.port).map(String.init))
+            document.setDirective(alias: alias, keyword: "proxyjump",
+                                  value: fields.proxyJump.isEmpty ? nil : fields.proxyJump)
+            document.setDirective(alias: alias, keyword: "identityfile",
+                                  value: fields.identityFile.isEmpty ? nil : fields.identityFile)
+        }
+        if error == nil { persistAndRebuild() }
+        return error
+    }
+
+    /// 新增主机块并纳入 Helm 管理。返回 nil 表示成功。
+    func addConfigHost(alias: String, fields: ConfigFields, meta: HostMeta) async -> String? {
+        var directives: [(String, String)] = []
+        if !fields.hostName.isEmpty { directives.append(("hostname", fields.hostName)) }
+        if !fields.user.isEmpty { directives.append(("user", fields.user)) }
+        if let port = Int(fields.port), port != 22 { directives.append(("port", String(port))) }
+        if !fields.proxyJump.isEmpty { directives.append(("proxyjump", fields.proxyJump)) }
+        if !fields.identityFile.isEmpty { directives.append(("identityfile", fields.identityFile)) }
+        let finalDirectives = directives
+
+        let error = await SSHConfigStore.mutate(validateAlias: alias) { document in
+            document.addHostBlock(alias: alias, directives: finalDirectives)
+        }
+        if error == nil {
+            var configMeta = meta
+            configMeta.source = .sshConfig
+            configMeta.hostName = nil
+            configMeta.user = nil
+            configMeta.port = nil
+            addOrUpdate(meta: configMeta)
+        }
+        return error
+    }
+
+    /// 从 ~/.ssh/config 移除主机块并删除 Helm 记录。返回 nil 表示成功。
+    func removeFromConfig(alias: String) async -> String? {
+        let error = await SSHConfigStore.mutate(validateAlias: nil) { document in
+            document.removeHostBlock(alias: alias)
+        }
+        if error == nil { remove(alias: alias) }
+        return error
+    }
+
     // MARK: - 连接动作
 
     func connect(_ host: Host) {

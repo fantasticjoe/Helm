@@ -22,6 +22,7 @@ enum SSHConfigParser {
                 entry.hostName = currentValues["hostname"]
                 entry.user = currentValues["user"]
                 entry.port = currentValues["port"].flatMap(Int.init)
+                entry.identityFile = currentValues["identityfile"]
                 if let jump = currentValues["proxyjump"] {
                     entry.proxyJump = jump
                 } else if currentValues["proxycommand"] != nil {

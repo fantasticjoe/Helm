@@ -52,9 +52,18 @@ struct HostCardView: View {
             "删除主机 \u{201C}\(host.name)\u{201D}?",
             isPresented: $confirmDelete
         ) {
-            Button("删除", role: .destructive) { engine.remove(alias: host.id) }
+            Button("仅从 Helm 删除", role: .destructive) { engine.remove(alias: host.id) }
+            if host.meta.source == .sshConfig && engine.configBlockEditable(alias: host.id) {
+                Button("同时从 ssh config 移除", role: .destructive) {
+                    Task {
+                        if let error = await engine.removeFromConfig(alias: host.id) {
+                            NotificationService.post(title: "移除失败", body: error)
+                        }
+                    }
+                }
+            }
         } message: {
-            Text("同时会删除钥匙串中保存的密码。不会改动 ~/.ssh/config。")
+            Text("两种方式都会删除钥匙串中保存的密码;「仅从 Helm 删除」不改动 ~/.ssh/config。")
         }
         .animation(.easeInOut(duration: 0.2), value: status.state)
     }

@@ -49,6 +49,7 @@ targets:
       - path: Helm/Models/Metrics.swift
       - path: Helm/Models/Host.swift
       - path: Helm/Services/SSHConfigParser.swift
+      - path: Helm/Services/SSHConfigDocument.swift
       - path: Helm/Services/ProbeParsers.swift
       - path: Helm/Services/ProcessRunner.swift
       - path: Helm/Services/SSHService.swift

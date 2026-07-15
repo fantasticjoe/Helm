@@ -22,6 +22,9 @@ xcodebuild -project Helm.xcodeproj -scheme Helm test
 - 密码只存 macOS Keychain(service `app.helm.ssh`);SSH_ASKPASS 指向 Helm
   自身可执行文件(`main.swift` 拦截 `HELM_ASKPASS` 环境变量),同一代码身份免二次授权
 - 所有远端探测命令以普通用户执行,全程无 sudo
+- ssh config 可视化编辑走无损文档模型(注释/空行/Match/通配块逐字节保留),
+  每次写入前备份到 `~/Library/Application Support/Helm/config-backups`(留最近 20 份),
+  原子写 + `ssh -G` 校验,失败自动回滚;多别名共享块与通配块保持只读
 - SwiftTerm 钉在 1.11.2:1.12+ 需要单独下载 Metal 工具链
   (`xcodebuild -downloadComponent MetalToolchain`)
 
