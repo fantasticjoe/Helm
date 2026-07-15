@@ -104,33 +104,36 @@ struct HostDetailView: View {
             Spacer(minLength: 16)
             switch status.state {
             case .connecting:
-                ProgressView().controlSize(.small)
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 34)
             case .online:
-                Button("断开") { engine.disconnect(host) }
+                actionButton("bolt.slash", help: "断开连接") { engine.disconnect(host) }
             default:
-                Button("连接") { engine.connect(host) }
-                    .buttonStyle(.borderedProminent)
+                Button {
+                    engine.connect(host)
+                } label: {
+                    Image(systemName: "bolt.fill").frame(width: 18)
+                }
+                .buttonStyle(.borderedProminent)
+                .help("建立连接")
             }
-            Button {
+            actionButton("terminal", help: "打开终端会话") {
                 engine.openTerminal(host)
                 dismiss()
-            } label: {
-                Image(systemName: "terminal")
             }
-            .help("打开终端会话")
-            Button {
-                onBrowse(host)
-            } label: {
-                Image(systemName: "folder")
-            }
-            .help("浏览文件")
-            Button {
-                onEdit(host.meta)
-            } label: {
-                Image(systemName: "pencil")
-            }
-            .help("编辑主机")
+            actionButton("folder", help: "浏览文件") { onBrowse(host) }
+            actionButton("pencil", help: "编辑主机") { onEdit(host.meta) }
         }
+    }
+
+    private func actionButton(
+        _ symbol: String, help: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).frame(width: 18)
+        }
+        .help(help)
     }
 
     // MARK: - 分组内容
