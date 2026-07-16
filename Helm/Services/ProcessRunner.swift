@@ -73,15 +73,13 @@ enum ProcessRunner {
                     return
                 }
 
-                let pid = process.processIdentifier
+                // 用 Process 自身的 isRunning/terminate,而非裸 kill(pid):
+                // waitUntilExit 回收子进程后 pid 可能被系统复用,裸 kill 有误杀风险。
                 let timedOutFlag = Box(false)
                 let killer = DispatchWorkItem {
-                    if kill(pid, 0) == 0 {
+                    if process.isRunning {
                         timedOutFlag.set(true)
-                        kill(pid, SIGTERM)
-                        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) {
-                            if kill(pid, 0) == 0 { kill(pid, SIGKILL) }
-                        }
+                        process.terminate()
                     }
                 }
                 DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout, execute: killer)

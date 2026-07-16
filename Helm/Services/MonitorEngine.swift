@@ -415,8 +415,10 @@ final class MonitorEngine {
         }
 
         let result = await SSHService.probe(host)
+        // 探测期间用户可能发起连接/断开:以最新状态为准重新读取,避免用陈旧快照覆盖并发更新。
         guard statuses[alias]?.state != .connecting else { return }
-        status.masterAlive = await SSHService.checkMaster(host)
+        status = statuses[alias] ?? status
+        status.masterAlive = masterAlive  // 复用探测前的检测结果,省一次 ssh
 
         if result.succeeded {
             let metrics = ProbeParsers.parseMetrics(result.stdout)
