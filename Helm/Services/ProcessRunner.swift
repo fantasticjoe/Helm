@@ -9,6 +9,36 @@ struct ProcessResult: Sendable {
     var succeeded: Bool { status == 0 && !timedOut }
 }
 
+/// 异步并发闸门:限制同时运行的子进程数。每个 ProcessRunner.run 会阻塞一个
+/// GCD 线程直到进程退出;批量命令 + 轮询叠加时若不限流,可能逼近 GCD 线程池
+/// 上限(~64)导致停滞。闸门把并发封顶在 limit,超出的调用异步排队等待。
+actor ProcessGate {
+    static let shared = ProcessGate(limit: 12)
+
+    private let limit: Int
+    private var active = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) { self.limit = limit }
+
+    func acquire() async {
+        if active < limit {
+            active += 1
+            return
+        }
+        // 满员:排队等待一个名额被移交(active 计数不变,直接过户)
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func release() {
+        if waiters.isEmpty {
+            active -= 1
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+}
+
 enum ProcessRunner {
     private final class Box<T>: @unchecked Sendable {
         private let lock = NSLock()
@@ -24,6 +54,18 @@ enum ProcessRunner {
         arguments: [String],
         environment: [String: String]? = nil,
         timeout: TimeInterval = 20
+    ) async -> ProcessResult {
+        await ProcessGate.shared.acquire()
+        let result = await withProcess(executable, arguments, environment, timeout)
+        await ProcessGate.shared.release()
+        return result
+    }
+
+    private static func withProcess(
+        _ executable: String,
+        _ arguments: [String],
+        _ environment: [String: String]?,
+        _ timeout: TimeInterval
     ) async -> ProcessResult {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {

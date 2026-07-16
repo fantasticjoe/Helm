@@ -386,7 +386,7 @@ final class MonitorEngine {
         let snapshot = hosts
         await withTaskGroup(of: Void.self) { group in
             for host in snapshot {
-                group.addTask { await MonitorEngine.shared.refresh(host) }
+                group.addTask { await self.refresh(host) }
             }
         }
     }
