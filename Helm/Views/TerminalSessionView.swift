@@ -32,9 +32,9 @@ struct TerminalTabView: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button("重新连接") { engine.reopenTerminalTab(tab.id) }
-                            .controlSize(.small)
+                            .buttonStyle(HelmButtonStyle())
                         Button("关闭标签页") { engine.closeTerminalTab(tab.id) }
-                            .controlSize(.small)
+                            .buttonStyle(HelmButtonStyle())
                     }
                     .padding(8)
                 }

@@ -21,6 +21,54 @@ extension View {
     }
 }
 
+/// 全 app 统一按钮样式:悬停增亮、按压微缩、destructive 红字、禁用降透明。
+/// 在容器上 .buttonStyle(HelmButtonStyle()) 级联,子按钮自动获得交互反馈。
+struct HelmButtonStyle: ButtonStyle {
+    var prominent = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        StyledBody(configuration: configuration, prominent: prominent)
+    }
+
+    private struct StyledBody: View {
+        let configuration: ButtonStyle.Configuration
+        let prominent: Bool
+        @State private var hovering = false
+        @Environment(\.isEnabled) private var isEnabled
+
+        private var isDestructive: Bool { configuration.role == .destructive }
+
+        private var fill: Color {
+            if prominent {
+                return Color.accentColor
+                    .opacity(configuration.isPressed ? 0.72 : hovering ? 0.86 : 1)
+            }
+            let base: Color = isDestructive ? .red : .primary
+            return base.opacity(configuration.isPressed ? 0.18 : hovering ? 0.13 : 0.08)
+        }
+
+        private var textStyle: AnyShapeStyle {
+            if prominent { return AnyShapeStyle(.white) }
+            if isDestructive { return AnyShapeStyle(Color.red) }
+            return AnyShapeStyle(.primary)
+        }
+
+        var body: some View {
+            configuration.label
+                .font(.callout)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(fill))
+                .foregroundStyle(textStyle)
+                .opacity(isEnabled ? 1 : 0.4)
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+                .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+        }
+    }
+}
+
 /// 统一的小关闭钮:平时若隐,悬停变实并出现圆形底。
 struct CloseChipButton: View {
     var help = "关闭标签页"

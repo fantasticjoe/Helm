@@ -116,7 +116,7 @@ struct HostDetailView: View {
                 } label: {
                     Image(systemName: "bolt.fill").frame(width: 18)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(HelmButtonStyle(prominent: true))
                 .help("建立连接")
             }
             actionButton("terminal", help: "打开终端会话") {

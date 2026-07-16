@@ -492,7 +492,7 @@ struct ImportSheet: View {
                     engine.importEntries(aliases: selection)
                     dismiss()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(HelmButtonStyle(prominent: true))
                 .disabled(selection.isEmpty)
             }
         }

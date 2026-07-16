@@ -18,7 +18,7 @@ struct OnboardingView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 Button("手动添加主机", action: addManually)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(HelmButtonStyle(prominent: true))
             } else {
                 Text("在 ~/.ssh/config 中发现 \(engine.pendingImport.count) 台主机")
                     .font(.title3.bold())
@@ -34,7 +34,7 @@ struct OnboardingView: View {
                     Button("导入 \(selection.count) 台主机") {
                         engine.importEntries(aliases: selection)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(HelmButtonStyle(prominent: true))
                     .disabled(selection.isEmpty)
                 }
                 Button("或手动添加主机", action: addManually)
@@ -44,6 +44,7 @@ struct OnboardingView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .buttonStyle(HelmButtonStyle())
         .onAppear { selection = Set(engine.pendingImport.map(\.alias)) }
     }
 }

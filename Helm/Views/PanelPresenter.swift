@@ -49,6 +49,7 @@ private struct PanelModifier<PanelContent: View>: ViewModifier {
                         .ignoresSafeArea()
                         .onTapGesture { isPresented = false }
                     panelContent()
+                        .buttonStyle(HelmButtonStyle())
                         .environment(\.panelDismiss, { isPresented = false })
                         .background(Color(nsColor: .windowBackgroundColor))
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

@@ -126,12 +126,13 @@ struct HostEditorView: View {
                 Spacer()
                 if saving { ProgressView().controlSize(.small) }
                 Button("保存") { save() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(HelmButtonStyle(prominent: true))
                     .keyboardShortcut(.return)
                     .disabled(!canSave || saving)
             }
             .padding(14)
         }
+        .buttonStyle(HelmButtonStyle())
         .frame(width: 480, height: 640)
         .onAppear(perform: populate)
         .alert("保存失败", isPresented: Binding(

@@ -40,6 +40,7 @@ struct HostCardView: View {
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.16), value: hovering)
+        .buttonStyle(HelmButtonStyle())
         .onTapGesture(perform: onOpen)
         .contextMenu {
             Button("查看详情") { onOpen() }
@@ -174,20 +175,14 @@ struct HostCardView: View {
                     .foregroundStyle(.secondary)
             case .online:
                 Button("断开") { engine.disconnect(host) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
             default:
                 Button("连接") { engine.connect(host) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
             }
             Button {
                 engine.openTerminal(host)
             } label: {
                 Label("终端", systemImage: "terminal")
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
             Spacer()
             if let metrics = status.metrics {
                 // 第四格被 GPU/作业占用时,在线用户挪到这里

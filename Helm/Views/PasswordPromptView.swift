@@ -31,10 +31,11 @@ struct PasswordPromptView: View {
                 .keyboardShortcut(.escape, modifiers: [])
                 Spacer()
                 Button("保存并连接", action: saveAndConnect)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(HelmButtonStyle(prominent: true))
                     .disabled(password.isEmpty)
             }
         }
+        .buttonStyle(HelmButtonStyle())
         .padding(22)
         .frame(width: 340)
         .onAppear { fieldFocused = true }

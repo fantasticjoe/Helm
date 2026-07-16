@@ -115,7 +115,7 @@ struct BatchCommandView: View {
                 .help("最近使用的命令")
             }
             Button("执行", action: attemptRun)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(HelmButtonStyle(prominent: true))
                 .disabled(runner.isRunning
                           || command.trimmingCharacters(in: .whitespaces).isEmpty
                           || selection.isEmpty)
