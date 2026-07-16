@@ -39,7 +39,7 @@ struct MainWindow: View {
         case .online:
             hosts = hosts.filter { isActive($0) }
         case .alerts:
-            hosts = hosts.filter { hasAlert($0) }
+            hosts = hosts.filter { engine.hasAlert($0) }
         case .gpu:
             hosts = hosts.filter { $0.meta.capabilities.contains(.gpu) }
         case .slurm:
@@ -62,20 +62,14 @@ struct MainWindow: View {
         return state == .online || state == .connecting
     }
 
-    private func hasAlert(_ host: Host) -> Bool {
-        let status = engine.status(for: host)
-        if status.state == .unreachable || status.state == .authFailed { return true }
-        if let worst = status.metrics?.worstDisk {
-            let threshold = UserDefaults.standard.integer(forKey: SettingsKeys.diskThreshold)
-            if worst.usedPercent >= max(threshold, 1) { return true }
-        }
-        return false
-    }
-
     var body: some View {
         @Bindable var engine = engine
         NavigationSplitView {
-            SidebarView(filter: $filter)
+            SidebarView(
+                filter: $filter,
+                onOpenDetail: { selectedHost = $0 },
+                onEdit: { editorTarget = .edit($0.meta) },
+                onBrowse: { fileBrowserHost = $0 })
         } detail: {
             detailContent
                 .navigationTitle(navigationTitle)
@@ -352,21 +346,16 @@ private struct TabChipFrame<Content: View>: View {
 struct SidebarView: View {
     @Environment(MonitorEngine.self) private var engine
     @Binding var filter: SidebarFilter?
+    var onOpenDetail: (Host) -> Void
+    var onEdit: (Host) -> Void
+    var onBrowse: (Host) -> Void
 
     private func count(_ predicate: (Host) -> Bool) -> Int {
         engine.hosts.filter(predicate).count
     }
 
     private var alertCount: Int {
-        count { host in
-            let status = engine.status(for: host)
-            if status.state == .unreachable || status.state == .authFailed { return true }
-            if let worst = status.metrics?.worstDisk {
-                let threshold = UserDefaults.standard.integer(forKey: SettingsKeys.diskThreshold)
-                if worst.usedPercent >= max(threshold, 1) { return true }
-            }
-            return false
-        }
+        count { engine.hasAlert($0) }
     }
 
     var body: some View {
@@ -414,6 +403,17 @@ struct SidebarView: View {
                     }
                 }
             }
+            if !engine.hosts.isEmpty {
+                Section("主机") {
+                    ForEach(engine.hosts) { host in
+                        SidebarHostRow(
+                            host: host,
+                            onOpenDetail: onOpenDetail,
+                            onEdit: onEdit,
+                            onBrowse: onBrowse)
+                    }
+                }
+            }
             if !engine.terminalTabs.isEmpty {
                 Section("终端") {
                     ForEach(engine.terminalTabs) { tab in
@@ -434,6 +434,58 @@ struct SidebarView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
         }
+    }
+}
+
+/// 侧栏主机行:单击开详情,右键全套快捷操作,悬停高亮。
+private struct SidebarHostRow: View {
+    @Environment(MonitorEngine.self) private var engine
+    let host: Host
+    var onOpenDetail: (Host) -> Void
+    var onEdit: (Host) -> Void
+    var onBrowse: (Host) -> Void
+
+    private var status: HostStatus { engine.status(for: host) }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            StatusDot(state: status.state, size: 7)
+            Text(host.name)
+                .font(.callout)
+                .lineLimit(1)
+            Spacer()
+            if engine.hasAlert(host) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            } else if let load = status.metrics?.load1 {
+                Text(String(format: "%.1f", load))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .hoverHighlight(cornerRadius: 5)
+        .onTapGesture { onOpenDetail(host) }
+        .contextMenu {
+            switch status.state {
+            case .online:
+                Button("断开连接") { engine.disconnect(host) }
+            case .connecting:
+                EmptyView()
+            default:
+                Button("连接") { engine.connect(host) }
+            }
+            Button("打开终端") { engine.openTerminal(host) }
+            Button("浏览文件…") { onBrowse(host) }
+            Divider()
+            Button("查看详情") { onOpenDetail(host) }
+            Button("编辑…") { onEdit(host) }
+        }
+        .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
     }
 }
 

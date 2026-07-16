@@ -55,6 +55,17 @@ final class MonitorEngine {
         statuses[host.id] ?? HostStatus()
     }
 
+    /// 告警判定:不可达 / 认证失败 / 最满磁盘超过阈值。
+    func hasAlert(_ host: Host) -> Bool {
+        let status = status(for: host)
+        if status.state == .unreachable || status.state == .authFailed { return true }
+        if let worst = status.metrics?.worstDisk {
+            let threshold = UserDefaults.standard.integer(forKey: SettingsKeys.diskThreshold)
+            if worst.usedPercent >= max(threshold, 1) { return true }
+        }
+        return false
+    }
+
     func host(alias: String) -> Host? {
         hosts.first { $0.id == alias }
     }
