@@ -34,7 +34,8 @@ func gigabytesFromKB(_ kb: Int64) -> String {
 }
 
 func gigabytesFromMB(_ mb: Int) -> String {
-    String(format: "%.0fG", Double(mb) / 1024)
+    let gb = Double(mb) / 1024
+    return gb < 10 ? String(format: "%.1fG", gb) : String(format: "%.0fG", gb)
 }
 
 struct StatusDot: View {

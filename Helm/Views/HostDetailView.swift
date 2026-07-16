@@ -215,16 +215,17 @@ struct HostDetailView: View {
     private func systemSection(_ metrics: HostMetrics) -> some View {
         Section("系统") {
             if let l1 = metrics.load1, let l5 = metrics.load5, let l15 = metrics.load15 {
-                LabeledContent("负载") {
-                    Text(String(format: "%.2f · %.2f · %.2f", l1, l5, l15))
+                LabeledContent("负载(1 / 5 / 15 分钟)") {
+                    Text(String(format: "%.2f · %.2f · %.2f", l1, l5, l15)
+                         + (metrics.cores.map { " · 共 \($0) 核" } ?? ""))
                         .monospacedDigit()
                 }
             }
             if let percent = metrics.memUsedPercent,
-               let total = metrics.memTotalMB, let avail = metrics.memAvailableMB {
+               let used = metrics.memUsedMB, let total = metrics.memTotalMB {
                 VStack(alignment: .leading, spacing: 5) {
                     LabeledContent("内存") {
-                        Text("\(percent)% · 可用 \(gigabytesFromMB(avail)) / \(gigabytesFromMB(total))")
+                        Text("已用 \(gigabytesFromMB(used)) / \(gigabytesFromMB(total)) · \(percent)%")
                             .monospacedDigit()
                     }
                     CapacityBar(fraction: Double(percent) / 100, tint: usageColor(percent))
@@ -253,7 +254,7 @@ struct HostDetailView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer()
-                        Text("\(disk.usedPercent)% · \(gigabytesFromKB(disk.usedKB)) / \(gigabytesFromKB(disk.totalKB))")
+                        Text("已用 \(gigabytesFromKB(disk.usedKB)) / \(gigabytesFromKB(disk.totalKB)) · \(disk.usedPercent)%")
                             .font(.callout)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
@@ -272,7 +273,7 @@ struct HostDetailView: View {
                         Text("#\(gpu.index) \(gpu.name)")
                             .lineLimit(1)
                         Spacer()
-                        Text("\(gpu.utilization)% · 显存 \(gigabytesFromMB(gpu.memUsedMB)) / \(gigabytesFromMB(gpu.memTotalMB))")
+                        Text("利用率 \(gpu.utilization)% · 显存 \(gigabytesFromMB(gpu.memUsedMB)) / \(gigabytesFromMB(gpu.memTotalMB))")
                             .font(.callout)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)

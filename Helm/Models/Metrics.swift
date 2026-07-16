@@ -33,6 +33,7 @@ struct HostMetrics: Sendable, Equatable {
     var load1: Double?
     var load5: Double?
     var load15: Double?
+    var cores: Int?
     var memTotalMB: Int?
     var memAvailableMB: Int?
     var disks: [DiskUsage] = []
@@ -44,6 +45,11 @@ struct HostMetrics: Sendable, Equatable {
     var memUsedPercent: Int? {
         guard let total = memTotalMB, total > 0, let avail = memAvailableMB else { return nil }
         return Int((Double(total - avail) / Double(total) * 100).rounded())
+    }
+
+    var memUsedMB: Int? {
+        guard let total = memTotalMB, let avail = memAvailableMB else { return nil }
+        return max(0, total - avail)
     }
 
     var worstDisk: DiskUsage? {

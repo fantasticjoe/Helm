@@ -5,6 +5,8 @@ struct ProbeParsersTests {
     static let fullOutput = """
     @@LOAD
      10:14:32 up 123 days,  4:05, 12 users,  load average: 3.15, 2.80, 2.42
+    @@CORES
+    64
     @@MEM
                   total        used        free      shared  buff/cache   available
     Mem:         515690       94321      201234        1234      220135      417000
@@ -33,7 +35,9 @@ struct ProbeParsersTests {
         #expect(m.load1 == 3.15)
         #expect(m.load5 == 2.80)
         #expect(m.load15 == 2.42)
+        #expect(m.cores == 64)
         #expect(m.memTotalMB == 515690)
+        #expect(m.memUsedMB == 515690 - 417000)
         #expect(m.memAvailableMB == 417000)
         #expect(m.memUsedPercent == 19)
         #expect(m.disks.count == 2)  // tmpfs 与 overlay 被过滤

@@ -9,6 +9,7 @@ enum ProbeParsers {
         if let lines = sections["LOAD"], let loads = parseUptime(lines) {
             (metrics.load1, metrics.load5, metrics.load15) = loads
         }
+        metrics.cores = parseCores(sections["CORES"] ?? [])
         if let lines = sections["MEM"], let mem = parseFree(lines) {
             metrics.memTotalMB = mem.totalMB
             metrics.memAvailableMB = mem.availableMB
@@ -46,6 +47,13 @@ enum ProbeParsers {
                let l1 = Double(match.1), let l5 = Double(match.2), let l15 = Double(match.3) {
                 return (l1, l5, l15)
             }
+        }
+        return nil
+    }
+
+    static func parseCores(_ lines: [String]) -> Int? {
+        for line in lines {
+            if let n = Int(line.trimmingCharacters(in: .whitespaces)), n > 0 { return n }
         }
         return nil
     }

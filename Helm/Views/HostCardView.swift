@@ -126,10 +126,14 @@ struct HostCardView: View {
         ) {
             Group {
                 MetricCell(
-                    label: "负载",
+                    label: metrics.cores.map { "负载 · \($0) 核" } ?? "负载",
                     value: metrics.load1.map { String(format: "%.2f", $0) } ?? "—")
-                if let percent = metrics.memUsedPercent, let total = metrics.memTotalMB {
-                    MetricCell(label: "内存 \(gigabytesFromMB(total))", value: "\(percent)%", percent: percent)
+                if let percent = metrics.memUsedPercent,
+                   let used = metrics.memUsedMB, let total = metrics.memTotalMB {
+                    MetricCell(
+                        label: "内存 \(gigabytesFromMB(used))/\(gigabytesFromMB(total))",
+                        value: "\(percent)%",
+                        percent: percent)
                 } else {
                     MetricCell(label: "内存", value: "—")
                 }

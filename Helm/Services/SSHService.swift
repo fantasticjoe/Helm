@@ -112,6 +112,7 @@ enum SSHService {
 
     static let probeScript = [
         "echo @@LOAD", "uptime",
+        "echo @@CORES", "nproc 2>/dev/null",
         "echo @@MEM", "free -m 2>/dev/null",
         "echo @@DISK", "df -Pk 2>/dev/null",
         "echo @@GPU", "nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null",
