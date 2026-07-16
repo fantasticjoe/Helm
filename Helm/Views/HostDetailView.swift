@@ -107,14 +107,14 @@ struct HostDetailView: View {
             case .connecting:
                 ProgressView()
                     .controlSize(.small)
-                    .frame(width: 34)
+                    .frame(width: 40)
             case .online:
                 actionButton("bolt.slash", help: "断开连接") { engine.disconnect(host) }
             default:
                 Button {
                     engine.connect(host)
                 } label: {
-                    Image(systemName: "bolt.fill").frame(width: 18)
+                    actionIcon("bolt.fill")
                 }
                 .buttonStyle(HelmButtonStyle(prominent: true))
                 .help("建立连接")
@@ -138,11 +138,18 @@ struct HostDetailView: View {
         }
     }
 
+    /// 统一图标盒:固定字号 + 定宽定高,四个按钮完全等大。
+    private func actionIcon(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .medium))
+            .frame(width: 20, height: 17)
+    }
+
     private func actionButton(
         _ symbol: String, help: String, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).frame(width: 18)
+            actionIcon(symbol)
         }
         .help(help)
     }
