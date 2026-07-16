@@ -9,6 +9,7 @@ struct HostDetailView: View {
 
     @State private var confirmDelete = false
     @State private var installingKey = false
+    @State private var confirmInstallKey = false
     @State private var keyInstallMessage: String?
     @State private var keyInstallSucceeded = false
 
@@ -127,6 +128,16 @@ struct HostDetailView: View {
         }
     }
 
+    private func performInstallKey() {
+        installingKey = true
+        Task {
+            let result = await engine.installPublicKey(host)
+            keyInstallSucceeded = result.success
+            keyInstallMessage = result.message
+            installingKey = false
+        }
+    }
+
     private func actionButton(
         _ symbol: String, help: String, action: @escaping () -> Void
     ) -> some View {
@@ -168,17 +179,19 @@ struct HostDetailView: View {
         Section("迁移到密钥登录") {
             HStack {
                 Button {
-                    installingKey = true
-                    Task {
-                        let result = await engine.installPublicKey(host)
-                        keyInstallSucceeded = result.success
-                        keyInstallMessage = result.message
-                        installingKey = false
-                    }
+                    confirmInstallKey = true
                 } label: {
                     Label("安装我的公钥", systemImage: "key.viewfinder")
                 }
                 .disabled(installingKey || !(status.state == .online || status.masterAlive))
+                .confirmationDialog(
+                    "安装公钥到 \(host.name)?",
+                    isPresented: $confirmInstallKey
+                ) {
+                    Button("写入 authorized_keys") { performInstallKey() }
+                } message: {
+                    Text("将把本地公钥追加到远端 ~/.ssh/authorized_keys(幂等,不覆盖已有内容)。")
+                }
                 if installingKey {
                     ProgressView().controlSize(.small)
                 }

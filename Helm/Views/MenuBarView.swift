@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuBarView: View {
     @Environment(MonitorEngine.self) private var engine
     @Environment(\.openWindow) private var openWindow
+    @State private var confirmingDisconnectAll = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -42,7 +43,20 @@ struct MenuBarView: View {
                     NSApp.activate(ignoringOtherApps: true)
                 }
                 Spacer()
-                Button("全部断开") { engine.disconnectAll() }
+                // 内联二段式确认:第一次点变红提示,3 秒不点自动还原
+                Button(confirmingDisconnectAll ? "确认全部断开?" : "全部断开") {
+                    if confirmingDisconnectAll {
+                        engine.disconnectAll()
+                        confirmingDisconnectAll = false
+                    } else {
+                        confirmingDisconnectAll = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            confirmingDisconnectAll = false
+                        }
+                    }
+                }
+                .foregroundStyle(confirmingDisconnectAll ? .red : .primary)
+                .animation(.easeOut(duration: 0.12), value: confirmingDisconnectAll)
                 Button("退出") { NSApp.terminate(nil) }
             }
             .buttonStyle(.borderless)

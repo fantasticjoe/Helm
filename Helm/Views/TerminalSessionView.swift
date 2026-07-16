@@ -20,6 +20,9 @@ struct TerminalTabView: View {
                         set: { engine.updateTerminalTabTitle(tab.id, title: $0) }),
                     sessionEnded: $sessionEnded)
                 if sessionEnded {
+                    // 已结束的会话上报引擎,关闭时免二次确认
+                    Color.clear.frame(height: 0)
+                        .onAppear { engine.markTerminalTabEnded(tab.id) }
                     Divider()
                     HStack {
                         Image(systemName: "moon.zzz")

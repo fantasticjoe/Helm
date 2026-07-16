@@ -7,6 +7,7 @@ struct BatchCommandView: View {
     @State private var runner = BatchRunner()
     @State private var command = ""
     @State private var selection: Set<String> = []
+    @State private var confirmRun = false
     @FocusState private var commandFocused: Bool
 
     private var selectedHosts: [Host] {
@@ -39,6 +40,14 @@ struct BatchCommandView: View {
             }
         }
         .frame(width: 760, height: 540)
+        .confirmationDialog(
+            "在 \(selection.count) 台主机上执行?",
+            isPresented: $confirmRun
+        ) {
+            Button("执行") { runCommand() }
+        } message: {
+            Text(command)
+        }
         .onAppear {
             // 默认选中当前在线的主机
             selection = Set(engine.hosts
@@ -92,7 +101,7 @@ struct BatchCommandView: View {
                 .textFieldStyle(.plain)
                 .font(.body.monospaced())
                 .focused($commandFocused)
-                .onSubmit(runCommand)
+                .onSubmit(attemptRun)
             if !runner.history.isEmpty {
                 Menu {
                     ForEach(runner.history, id: \.self) { item in
@@ -105,7 +114,7 @@ struct BatchCommandView: View {
                 .fixedSize()
                 .help("最近使用的命令")
             }
-            Button("执行", action: runCommand)
+            Button("执行", action: attemptRun)
                 .buttonStyle(.borderedProminent)
                 .disabled(runner.isRunning
                           || command.trimmingCharacters(in: .whitespaces).isEmpty
@@ -138,6 +147,18 @@ struct BatchCommandView: View {
                 }
                 .padding(12)
             }
+        }
+    }
+
+    /// 多机执行是危险操作:≥2 台先弹确认,单台直接跑。
+    private func attemptRun() {
+        guard !runner.isRunning,
+              !command.trimmingCharacters(in: .whitespaces).isEmpty,
+              !selectedHosts.isEmpty else { return }
+        if selectedHosts.count > 1 {
+            confirmRun = true
+        } else {
+            runCommand()
         }
     }
 

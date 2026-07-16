@@ -37,6 +37,7 @@ struct HostEditorView: View {
     @State private var proxyCommandManaged = false
     @State private var saving = false
     @State private var saveError: String?
+    @State private var confirmDeletePassword = false
 
     private var originalMeta: HostMeta? {
         if case .edit(let meta) = target { return meta }
@@ -85,10 +86,20 @@ struct HostEditorView: View {
                                     .foregroundStyle(.green)
                                 Spacer()
                                 Button("删除已存密码", role: .destructive) {
-                                    KeychainStore.deletePassword(for: alias)
-                                    hasStoredPassword = false
+                                    confirmDeletePassword = true
                                 }
                                 .controlSize(.small)
+                                .confirmationDialog(
+                                    "删除已存密码?",
+                                    isPresented: $confirmDeletePassword
+                                ) {
+                                    Button("删除", role: .destructive) {
+                                        KeychainStore.deletePassword(for: alias)
+                                        hasStoredPassword = false
+                                    }
+                                } message: {
+                                    Text("将从钥匙串移除 \(alias) 的密码,下次连接需重新输入。")
+                                }
                             } else {
                                 Text("保存后密码仅存于 macOS 钥匙串,仅 Helm 可读取")
                                     .font(.caption)

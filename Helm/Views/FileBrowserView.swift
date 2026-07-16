@@ -118,6 +118,8 @@ struct FileBrowserView: View {
     @Environment(\.panelDismiss) private var dismiss
     @State private var model: FileBrowserModel
     @State private var selection: Set<String> = []
+    @State private var pendingUploads: [URL] = []
+    @State private var confirmOverwrite = false
 
     init(host: Host) {
         _model = State(initialValue: FileBrowserModel(host: host))
@@ -142,6 +144,17 @@ struct FileBrowserView: View {
         }
         .frame(width: 720, height: 540)
         .task { await model.open() }
+        .confirmationDialog(
+            "覆盖远端同名文件?",
+            isPresented: $confirmOverwrite
+        ) {
+            Button("上传并覆盖", role: .destructive) {
+                model.upload(pendingUploads)
+                pendingUploads = []
+            }
+        } message: {
+            Text(overwriteMessage)
+        }
     }
 
     private var header: some View {
@@ -238,7 +251,7 @@ struct FileBrowserView: View {
                 }
             }
             .dropDestination(for: URL.self) { urls, _ in
-                model.upload(urls)
+                handleDrop(urls)
                 return true
             }
         }
@@ -282,6 +295,26 @@ struct FileBrowserView: View {
             .padding(.vertical, 6)
         }
         .frame(maxHeight: 96)
+    }
+
+    /// 上传前检查远端同名冲突,有冲突先确认。
+    private func handleDrop(_ urls: [URL]) {
+        let existing = Set(model.files.map(\.name))
+        let conflicts = urls.filter { existing.contains($0.lastPathComponent) }
+        if conflicts.isEmpty {
+            model.upload(urls)
+        } else {
+            pendingUploads = urls
+            confirmOverwrite = true
+        }
+    }
+
+    private var overwriteMessage: String {
+        let existing = Set(model.files.map(\.name))
+        let names = pendingUploads.map(\.lastPathComponent).filter { existing.contains($0) }
+        let shown = names.prefix(3).joined(separator: "、")
+        let suffix = names.count > 3 ? " 等 \(names.count) 个文件" : ""
+        return "远端目录已存在:\(shown)\(suffix)"
     }
 
     private func icon(for file: RemoteFile) -> String {

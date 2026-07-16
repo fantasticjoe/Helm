@@ -85,6 +85,21 @@ struct MainWindow: View {
             // 点过滤器即回到主机视图
             engine.selectedTab = .hosts
         }
+        .confirmationDialog(
+            "关闭终端 \u{201C}\(engine.terminalCloseRequest.map { $0.title.isEmpty ? $0.alias : $0.title } ?? "")\u{201D}?",
+            isPresented: Binding(
+                get: { engine.terminalCloseRequest != nil },
+                set: { if !$0 { engine.terminalCloseRequest = nil } })
+        ) {
+            Button("关闭并结束会话", role: .destructive) {
+                if let tab = engine.terminalCloseRequest {
+                    engine.closeTerminalTab(tab.id)
+                }
+                engine.terminalCloseRequest = nil
+            }
+        } message: {
+            Text("该会话仍在运行,关闭后 ssh 连接将结束。")
+        }
         .toolbar {
             if !engine.pendingImport.isEmpty && !engine.hosts.isEmpty {
                 ToolbarItem {
@@ -306,7 +321,7 @@ private struct TerminalTabChip: View {
                 .font(.caption)
                 .lineLimit(1)
                 .frame(maxWidth: 150)
-            CloseChipButton { engine.closeTerminalTab(tab.id) }
+            CloseChipButton { engine.requestCloseTerminalTab(tab.id) }
         }
     }
 }
@@ -442,7 +457,7 @@ private struct SidebarTerminalRow: View {
                 .font(.callout)
                 .lineLimit(1)
             Spacer()
-            CloseChipButton { engine.closeTerminalTab(tab.id) }
+            CloseChipButton { engine.requestCloseTerminalTab(tab.id) }
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 4)

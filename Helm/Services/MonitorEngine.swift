@@ -32,6 +32,10 @@ final class MonitorEngine {
     var passwordRequest: PasswordRequest?
     var terminalTabs: [TerminalTab] = []
     var selectedTab: DetailTab = .hosts
+    /// 已结束的会话(关闭无需确认)
+    private(set) var endedTerminalTabs: Set<UUID> = []
+    /// 待确认关闭的活跃会话,由 MainWindow 弹确认框
+    var terminalCloseRequest: TerminalTab?
 
     private var metas: [HostMeta] = []
     private var configEntries: [SSHConfigEntry] = []
@@ -296,9 +300,23 @@ final class MonitorEngine {
         }
     }
 
+    func markTerminalTabEnded(_ id: UUID) {
+        endedTerminalTabs.insert(id)
+    }
+
+    /// 关闭入口:活跃会话先请求二次确认,已结束的直接关。
+    func requestCloseTerminalTab(_ id: UUID) {
+        if endedTerminalTabs.contains(id) {
+            closeTerminalTab(id)
+        } else if let tab = terminalTabs.first(where: { $0.id == id }) {
+            terminalCloseRequest = tab
+        }
+    }
+
     func closeTerminalTab(_ id: UUID) {
         guard let index = terminalTabs.firstIndex(where: { $0.id == id }) else { return }
         terminalTabs.remove(at: index)
+        endedTerminalTabs.remove(id)
         if selectedTab == .terminal(id) {
             if terminalTabs.isEmpty {
                 selectedTab = .hosts
@@ -311,6 +329,7 @@ final class MonitorEngine {
     /// 会话结束后原位重连:同位置换新 UUID → 视图重建 → 新 ssh 会话。
     func reopenTerminalTab(_ id: UUID) {
         guard let index = terminalTabs.firstIndex(where: { $0.id == id }) else { return }
+        endedTerminalTabs.remove(id)
         let old = terminalTabs[index]
         let fresh = TerminalTab(
             id: UUID(), alias: old.alias,
