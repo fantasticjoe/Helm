@@ -127,7 +127,8 @@ struct HostCardView: View {
             Group {
                 MetricCell(
                     label: metrics.cores.map { "负载 · \($0) 核" } ?? "负载",
-                    value: metrics.load1.map { String(format: "%.2f", $0) } ?? "—")
+                    value: metrics.load1.map { String(format: "%.2f", $0) } ?? "—",
+                    percent: metrics.loadPercent)
                 if let percent = metrics.memUsedPercent,
                    let used = metrics.memUsedMB, let total = metrics.memTotalMB {
                     MetricCell(

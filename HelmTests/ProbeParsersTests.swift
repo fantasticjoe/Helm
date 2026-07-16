@@ -36,6 +36,7 @@ struct ProbeParsersTests {
         #expect(m.load5 == 2.80)
         #expect(m.load15 == 2.42)
         #expect(m.cores == 64)
+        #expect(m.loadPercent == 5)  // 3.15 / 64 核
         #expect(m.memTotalMB == 515690)
         #expect(m.memUsedMB == 515690 - 417000)
         #expect(m.memAvailableMB == 417000)

@@ -215,10 +215,15 @@ struct HostDetailView: View {
     private func systemSection(_ metrics: HostMetrics) -> some View {
         Section("系统") {
             if let l1 = metrics.load1, let l5 = metrics.load5, let l15 = metrics.load15 {
-                LabeledContent("负载(1 / 5 / 15 分钟)") {
-                    Text(String(format: "%.2f · %.2f · %.2f", l1, l5, l15)
-                         + (metrics.cores.map { " · 共 \($0) 核" } ?? ""))
-                        .monospacedDigit()
+                VStack(alignment: .leading, spacing: 5) {
+                    LabeledContent("负载(1 / 5 / 15 分钟)") {
+                        Text(String(format: "%.2f · %.2f · %.2f", l1, l5, l15)
+                             + (metrics.cores.map { " · 共 \($0) 核" } ?? ""))
+                            .monospacedDigit()
+                    }
+                    if let percent = metrics.loadPercent {
+                        CapacityBar(fraction: Double(percent) / 100, tint: usageColor(percent))
+                    }
                 }
             }
             if let percent = metrics.memUsedPercent,

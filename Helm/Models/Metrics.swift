@@ -52,6 +52,12 @@ struct HostMetrics: Sendable, Equatable {
         return max(0, total - avail)
     }
 
+    /// CPU 饱和度:1 分钟负载 ÷ 核数(可超 100,显示时封顶)。
+    var loadPercent: Int? {
+        guard let load = load1, let cores, cores > 0 else { return nil }
+        return Int((load / Double(cores) * 100).rounded())
+    }
+
     var worstDisk: DiskUsage? {
         disks.max { $0.usedPercent < $1.usedPercent }
     }
